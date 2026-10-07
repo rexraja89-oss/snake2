@@ -1,85 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Snake Game</title>
-    <style>
-        body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        canvas { background: #000; }
-        #score { color: #fff; font-size: 24px; margin-bottom: 10px; }
-        #restart { padding: 10px 20px; font-size: 18px; cursor: pointer; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cyber Snake</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(circle at 50% 20%, #10213a 0%, #070b14 70%);
+    color: #e6f2ff;
+    font-family: 'Segoe UI', system-ui, Roboto, Arial, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-start; min-height: 100%; padding: 14px; overflow: hidden;
+  }
+  h1 { font-size: 1.6rem; letter-spacing: 3px; color: #19e3b1;
+       text-shadow: 0 0 14px rgba(25,227,177,.6); margin-bottom: 6px; }
+  .scores { display: flex; gap: 28px; font-size: 1rem; font-weight: 700; color: #8aa0bd; margin-bottom: 10px; }
+  .scores b { color: #fff; }
+  #wrap { position: relative; width: 100%; max-width: 430px; aspect-ratio: 1; }
+  canvas { width: 100%; height: 100%; display: block; background: #0b1120;
+           border: 2px solid #1c2a47; border-radius: 14px;
+           box-shadow: 0 0 26px rgba(0,0,0,.6), inset 0 0 22px rgba(0,0,0,.5); touch-action: none; }
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column;
+             align-items: center; justify-content: center; text-align: center;
+             background: rgba(7,11,20,.82); backdrop-filter: blur(3px); border-radius: 14px; gap: 10px; }
+  .overlay h2 { font-size: 2.1rem; color: #19e3b1; text-shadow: 0 0 14px rgba(25,227,177,.6); }
+  .overlay.over h2 { color: #ff4d6d; text-shadow: 0 0 14px rgba(255,77,109,.6); }
+  .overlay p { color: #9fb3d1; }
+  .btn { margin-top: 8px; padding: 13px 34px; font-size: 1.1rem; font-weight: 800; letter-spacing: 1px;
+         color: #04121f; border: none; border-radius: 30px; cursor: pointer;
+         background: linear-gradient(135deg, #19e3b1, #27a3ff); box-shadow: 0 0 18px rgba(25,227,177,.45); }
+  .btn:active { transform: scale(.95); }
+  .hidden { display: none !important; }
+  .pad { margin-top: 16px; display: grid; grid-template-columns: repeat(3, 64px);
+         grid-template-rows: repeat(3, 64px); gap: 8px; }
+  .key { background: #141f36; border: 1px solid #2a3b5e; border-radius: 12px; color: #19e3b1;
+         font-size: 1.7rem; display: flex; align-items: center; justify-content: center;
+         box-shadow: 0 4px 0 #0a1120; }
+  .key:active { transform: translateY(3px); box-shadow: 0 1px 0 #0a1120; background: #1b2a49; }
+  .up { grid-area: 1/2; } .left { grid-area: 2/1; } .down { grid-area: 3/2; } .right { grid-area: 2/3; }
+</style>
 </head>
 <body>
-    <div id="score">Score: 0</div>
-    <canvas id="gameCanvas" width="400" height="400"></canvas>
-    <button id="restart" style="display:none;">Restart</button>
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const box = 20;
-        let score = 0;
-        let snake = [{ x: 10 * box, y: 10 * box }];
-        let food = { x: Math.floor(Math.random() * 20) * box, y: Math.floor(Math.random() * 20) * box };
-        let d;
+  <h1>CYBER SNAKE</h1>
+  <div class="scores">SCORE <b id="score">0</b> &nbsp; HIGH <b id="high">0</b></div>
 
-        document.addEventListener("keydown", direction);
-        document.getElementById("restart").onclick = restartGame;
+  <div id="wrap">
+    <canvas id="game" width="400" height="400"></canvas>
+    <div id="start" class="overlay">
+      <h2>READY?</h2>
+      <p>Swipe, use the buttons, or arrow keys</p>
+      <button class="btn" id="playBtn">PLAY</button>
+    </div>
+    <div id="gameover" class="overlay over hidden">
+      <h2>GAME OVER</h2>
+      <p>Score: <b id="finalScore">0</b></p>
+      <button class="btn" id="restartBtn">PLAY AGAIN</button>
+    </div>
+  </div>
 
-        function direction(event) {
-            if(event.keyCode === 37 && d !== "RIGHT") d = "LEFT";
-            else if(event.keyCode === 38 && d !== "DOWN") d = "UP";
-            else if(event.keyCode === 39 && d !== "LEFT") d = "RIGHT";
-            else if(event.keyCode === 40 && d !== "UP") d = "DOWN";
-        }
+  <div class="pad">
+    <div class="key up"    data-dir="UP">▲</div>
+    <div class="key left"  data-dir="LEFT">◀</div>
+    <div class="key down"  data-dir="DOWN">▼</div>
+    <div class="key right" data-dir="RIGHT">▶</div>
+  </div>
 
-        function gameLoop() {
-            if(snake[0].x === food.x && snake[0].y === food.y) {
-                score++;
-                food = { x: Math.floor(Math.random() * 20) * box, y: Math.floor(Math.random() * 20) * box };
-            } else {
-                snake.pop();
-            }
+<script>
+(function () {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const GRID = 20, CELL = canvas.width / GRID;   // 20x20 board
+  const scoreEl = document.getElementById('score');
+  const highEl = document.getElementById('high');
+  const finalEl = document.getElementById('finalScore');
+  const startOv = document.getElementById('start');
+  const overOv = document.getElementById('gameover');
 
-            const head = { x: snake[0].x, y: snake[0].y };
-            if(d === "LEFT") head.x -= box;
-            if(d === "UP") head.y -= box;
-            if(d === "RIGHT") head.x += box;
-            if(d === "DOWN") head.y += box;
+  let snake, dir, nextDir, food, score, high, timer, state;
+  high = parseInt(localStorage.getItem('cyberSnakeHigh') || '0', 10);
+  highEl.textContent = high;
 
-            if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height || collision(head, snake)) {
-                clearInterval(game);
-                document.getElementById("restart").style.display = "block";
-                return;
-            }
+  function reset() {
+    snake = [{x:8,y:10},{x:7,y:10},{x:6,y:10}];
+    dir = 'RIGHT'; nextDir = 'RIGHT';
+    score = 0; scoreEl.textContent = 0;
+    placeFood();
+    draw();
+  }
 
-            snake.unshift(head);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "red";
-            ctx.fillRect(food.x, food.y, box, box);
-            ctx.fillStyle = "green";
-            snake.forEach(s => ctx.fillRect(s.x, s.y, box, box));
-            document.getElementById("score").innerText = "Score: " + score;
-        }
+  function placeFood() {
+    do {
+      food = { x: Math.floor(Math.random()*GRID), y: Math.floor(Math.random()*GRID) };
+    } while (snake.some(s => s.x === food.x && s.y === food.y));
+  }
 
-        function collision(head, array) {
-            for(let i = 1; i < array.length; i++) {
-                if(head.x === array[i].x && head.y === array[i].y) return true;
-            }
-            return false;
-        }
+  function start() {
+    reset();
+    startOv.classList.add('hidden');
+    overOv.classList.add('hidden');
+    state = 'playing';
+    clearInterval(timer);
+    timer = setInterval(tick, 120);
+  }
 
-        function restartGame() {
-            score = 0;
-            snake = [{ x: 10 * box, y: 10 * box }];
-            food = { x: Math.floor(Math.random() * 20) * box, y: Math.floor(Math.random() * 20) * box };
-            d = null;
-            document.getElementById("restart").style.display = "none";
-            game = setInterval(gameLoop, 100);
-        }
+  function gameOver() {
+    state = 'over';
+    clearInterval(timer);
+    if (score > high) { high = score; localStorage.setItem('cyberSnakeHigh', high); highEl.textContent = high; }
+    finalEl.textContent = score;
+    overOv.classList.remove('hidden');
+  }
 
-        let game = setInterval(gameLoop, 100);
-    </script>
+  function tick() {
+    dir = nextDir;
+    const head = { x: snake[0].x, y: snake[0].y };
+    if (dir === 'LEFT') head.x--;
+    else if (dir === 'RIGHT') head.x++;
+    else if (dir === 'UP') head.y--;
+    else if (dir === 'DOWN') head.y++;
+
+    // Wall or self collision
+    if (head.x < 0 || head.y < 0 || head.x >= GRID || head.y >= GRID ||
+        snake.some(s => s.x === head.x && s.y === head.y)) {
+      return gameOver();
+    }
+
+    snake.unshift(head);
+    if (head.x === food.x && head.y === food.y) {
+      score++; scoreEl.textContent = score; placeFood();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // subtle grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    for (let i = 1; i < GRID; i++) {
+      ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(canvas.width,i*CELL); ctx.stroke();
+    }
+    // food
+    ctx.fillStyle = '#ff4d6d';
+    ctx.shadowColor = '#ff4d6d'; ctx.shadowBlur = 12;
+    roundRect(food.x*CELL+2, food.y*CELL+2, CELL-4, CELL-4, 5); ctx.fill();
+    // snake
+    ctx.shadowColor = '#19e3b1'; ctx.shadowBlur = 10;
+    snake.forEach((s, i) => {
+      ctx.fillStyle = i === 0 ? '#9dffe0' : '#19e3b1';
+      roundRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2, 5); ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function setDir(d) {
+    if (state !== 'playing') return;
+    const opp = { LEFT:'RIGHT', RIGHT:'LEFT', UP:'DOWN', DOWN:'UP' };
+    if (d !== opp[dir]) nextDir = d;
+  }
+
+  // Controls: buttons
+  document.querySelectorAll('.key').forEach(k =>
+    k.addEventListener('touchstart', e => { e.preventDefault(); setDir(k.dataset.dir); }, {passive:false}));
+  document.querySelectorAll('.key').forEach(k =>
+    k.addEventListener('mousedown', () => setDir(k.dataset.dir)));
+
+  // Controls: keyboard
+  document.addEventListener('keydown', e => {
+    const map = {ArrowLeft:'LEFT',ArrowRight:'RIGHT',ArrowUp:'UP',ArrowDown:'DOWN',a:'LEFT',d:'RIGHT',w:'UP',s:'DOWN'};
+    if (map[e.key]) { e.preventDefault(); setDir(map[e.key]); }
+  });
+
+  // Controls: swipe on the board
+  let sx=0, sy=0;
+  canvas.addEventListener('touchstart', e => { sx=e.touches[0].clientX; sy=e.touches[0].clientY; }, {passive:true});
+  canvas.addEventListener('touchend', e => {
+    const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+    if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+    if (Math.abs(dx) > Math.abs(dy)) setDir(dx>0?'RIGHT':'LEFT');
+    else setDir(dy>0?'DOWN':'UP');
+  }, {passive:true});
+
+  document.getElementById('playBtn').addEventListener('click', start);
+  document.getElementById('restartBtn').addEventListener('click', start);
+
+  // Initial paint (safe — the game only moves after PLAY)
+  state = 'ready';
+  reset();
+})();
+</script>
 </body>
 </html>
